@@ -1,72 +1,49 @@
-# Mod Manager Design
+# Mod Manager Design and Current Behavior
 
-## Supported mod families
+## Riivolution
 
-### Riivolution
+The manager imports ZIP archives containing a Riivolution XML patch definition and its replacement files. It validates archive paths, rejects symlinks, checks for a `wiidisc` XML root, reads game prefix/name metadata and installs into:
+`User/Load/Riivolution/<generated UUID>`
 
-The manager should preserve original Riivolution files and directory structures. It should inspect the patch XML, enumerate patch IDs/options, validate referenced paths, and present the user with selectable options.
+Enable/disable moves the app-managed UUID folder between Load/Riivolution and ModStash. Removal deletes only the generated folder owned by the app.
 
-Important: XML parsing and UI selection do not themselves activate patches. The manager must use the mechanism supported by the selected Dolphin build. If the CLI or existing Dolphin UI cannot select a patch set deterministically, add a small, tested integration feature to the Dolphin fork.
+**Activation limitation:** Dolphin's desktop workflow still requires users to right-click the title in the game list, choose **Start with Riivolution Patches**, then choose the XML and options. The launcher's normal `--exec` action does not select the patch set.
 
-Never rewrite game images to install a Riivolution patch. Keep source patch files and the selected activation configuration separate.
+## Dolphin Resource Packs and HD textures
 
-### Dolphin resource packs and custom textures
+The importer extracts the ZIP into a temporary validation directory, requires a root-level `manifest.json` with a `name` field, rejects unsafe paths and symlinks, and enforces file-count/expanded-size limits. It then stores the original ZIP under:
+`User/ResourcePacks/<generated UUID>.zip`
 
-Support the Dolphin Resource Pack specification:
-- ZIP archive with a manifest and textures directory.
-- Game-ID directories inside textures.
-- Validate required manifest fields.
-- Recognize the compressed flag and format version.
-- Preserve pack identity, version, authors, and website metadata.
-- Offer stable priority ordering and conflict previews.
+The original ZIP is retained because Dolphin loads resource-pack archives from its ResourcePacks folder. Active packs cause the launcher to enable Dolphin's `HiresTextures` and `CacheHiresTextures` options.
 
-Also support legacy custom texture folders under the managed Dolphin user directory. Resource packs and manually installed textures should be distinguishable in the UI.
+## Gecko codes
 
-### Gecko and Action Replay codes
+Codes are validated as lines of two eight-character hexadecimal tokens and written to:
+`User/GameSettings/<GAMEID>.ini`
+under `[Gecko]`. A comment-delimited managed block allows later saves to replace only the app-owned codes. Profiles with enabled codes launch Dolphin with cheats enabled.
 
-Use Dolphin's supported per-game code configuration where available. Show code origin and description, allow explicit enable/disable, and avoid silently downloading or enabling codes.
+## Controller source
 
-## Common metadata model
+The manager writes `WiimoteSource0` into `[Controls]` in the same GameINI:
+- 1 = Emulated Wii Remote
+- 2 = Real Wii Remote
 
-Each imported mod receives an app-side record:
+Detailed controller mappings and MotionPlus/Nunchuk attachments still require Dolphin's controller UI.
 
-- Internal UUID.
-- Display name and description.
-- Mod family.
-- Version and author metadata, if supplied.
-- Source path and content hash.
-- Supported game IDs/regions.
-- Declared dependencies/conflicts, if available.
-- Selected options.
-- Enable state per profile.
-- Import time and last validation result.
+## Archive safety
 
-Do not force all formats into a single rewritten archive. Preserve original data and store only app-managed metadata/selection state separately.
+- Extract to a temporary staging directory.
+- Reject traversal/absolute paths and symlinks.
+- Limit file count and expanded size.
+- Validate XML/JSON before installation.
+- Use generated UUIDs for installed paths.
+- Never execute archive contents.
+- Remove only generated app-managed folders/files.
 
-## Installation and rollback
+## Not implemented yet
 
-- Import into a staging directory.
-- Inspect the archive before extraction.
-- Reject absolute paths, parent-directory traversal, unsafe symlinks, excessive file counts, and unreasonable uncompressed sizes.
-- Validate XML/JSON before activation.
-- Compute hashes and detect duplicate content.
-- Create a backup or activation manifest before changing managed files.
-- Apply changes atomically where possible.
-- If activation fails, restore the previous known-good state.
-- Never delete files the manager cannot prove it owns.
-
-## Conflict handling
-
-Show:
-- Same-path texture collisions.
-- Duplicate patch IDs.
-- Conflicting patch options.
-- Region/game-ID mismatch.
-- Dependencies not installed.
-- Mod family unsupported by the selected Dolphin version.
-
-Do not silently resolve semantic conflicts. For texture collisions, allow explicit priority ordering and explain which pack wins.
-
-## Distribution
-
-The app may link users to mod authors' official pages. Do not mirror or bundle third-party game modifications unless redistribution permission is explicit. Do not include copyrighted game files or textures in releases.
+- Dependency/conflict graph and mod priority UI.
+- Direct Riivolution preset selection from the launcher.
+- Automatic region/title compatibility verification for every mod.
+- Resource-pack format conformance tests for every supported version.
+- Automatic MotionPlus/Nunchuk mapping.
