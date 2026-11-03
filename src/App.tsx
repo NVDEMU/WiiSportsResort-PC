@@ -83,7 +83,7 @@ export default function App() {
   },[]);
 
   const chooseDolphin=async()=>{
-    const path=await open({multiple:false,title:"Select Dolphin executable",filters:[{name:"Dolphin executable",extensions:["exe","*"]}]});
+    const path=await open({multiple:false,title:"Select Dolphin executable"});
     if(!path||typeof path!=="string")return;
     setBusy(true);
     try{
@@ -97,7 +97,7 @@ export default function App() {
     setBusy(true);
     try{
       const info=await invoke<GameInfo>("inspect_game",{path});
-      setGame(info);await persist({...config,gamePath:info.path,gameId:info.gameId??config.gameId??null});
+      setGame(info);await persist({...config,gamePath:info.path,gameId:info.gameId??null});
       tell(info.note,info.isWiiSportsResort?"ok":"info");
     }catch(error){tell(String(error),"error");}finally{setBusy(false);}
   };
@@ -248,7 +248,7 @@ export default function App() {
             <div className="setting wide"><b>Preferred controller/device</b><small>Profile note (e.g. Wii Remote 1, DualSense via DSU).</small><input value={active.controller.deviceLabel} onChange={e=>updateController({...active.controller,deviceLabel:e.target.value})} placeholder="Enter device name"/></div>
             <div className="setting wide"><div className="setting-head"><b>Motion sensitivity preference</b><span>{active.controller.sensitivity.toFixed(1)}×</span></div><input type="range" min=".5" max="2" step=".1" value={active.controller.sensitivity} onChange={e=>updateController({...active.controller,sensitivity:Number(e.target.value)})}/><small>Stored for the future mapping layer; not applied as a universal Dolphin motion multiplier.</small></div>
           </div>
-          <div className="info"><Joystick/><div><b>Detailed motion mapping in Dolphin</b><p>The launcher selects Real or Emulated Wii Remote for slot 1. Gyro, IR pointer, swing, rumble, Nunchuk and MotionPlus extension mappings remain configured through Dolphin's controller interface. Pair physical remotes inside Dolphin rather than in OS Bluetooth settings.</p><button className="text-link" onClick={openDolphin}>OPEN DOLPHIN CONTROLLER SETTINGS <ArrowUpRight size={14}/></button></div></div>
+          <div className="info"><Joystick/><div><b>Detailed motion mapping in Dolphin</b><p>The launcher selects Real or Emulated Wii Remote for slot 1. Gyro, IR pointer, swing, rumble, Nunchuk and MotionPlus extension mappings remain configured through Dolphin's controller interface. Pair physical remotes inside Dolphin rather than in OS Bluetooth settings.</p><button className="text-link" onClick={openDolphin}>OPEN DOLPHIN FOR CONTROLLER SETUP <ArrowUpRight size={14}/></button></div></div>
         </section>}
 
         {page==="saves"&&active&&<section>
