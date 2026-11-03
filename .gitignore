@@ -1,0 +1,59 @@
+# Node / frontend
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Tauri / Rust
+src-tauri/target/
+target/
+*.pdb
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.p12
+*.pfx
+*.mobileprovision
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local app data, emulator runtime, and build artifacts
+User/
+UserData/
+Dolphin.app/
+Dolphin.exe
+dolphin-emu/
+runtime/
+release/
+artifacts/
+
+# Game dumps and extracted game data
+*.iso
+*.wbfs
+*.wud
+*.wux
+*.nfs
+*.rvz
+*.gcm
+*.gcz
+*.wad
+
+# Console firmware / NAND / saves / states
+nand/
+NAND/
+sys/
+keys/
+*.bin
+*.sav
+*.srm
+*.state
+*.raw
