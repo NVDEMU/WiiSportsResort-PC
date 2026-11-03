@@ -5,7 +5,7 @@ import {
   Activity, Archive, ArrowDownToLine, ArrowUpRight, Check, CloudSun, Disc3,
   FolderOpen, Gamepad2, HardDrive, Image, Info, Joystick, Layers3, Monitor,
   PackagePlus, Play, RefreshCw, Save, Settings2, ShieldCheck, Sparkles, Trash2,
-  X, Gauge, WandSparkles
+  X, WandSparkles
 } from "lucide-react";
 import type {
   AppConfig, BackupInfo, ControllerSettings, DolphinInfo, GameInfo, GeckoCode,
