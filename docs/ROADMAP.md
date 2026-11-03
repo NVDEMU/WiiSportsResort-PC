@@ -1,115 +1,90 @@
 # Implementation Roadmap
 
-The roadmap covers the complete requested scope. Milestones are ordered to produce a usable build early without abandoning the advanced features.
+This roadmap reflects the current first-pass implementation. A checked box means source code or workflow definition exists; it does not imply that the feature has passed a native build or real-game test.
 
-## M0 — Repository and engineering foundation
+## M0 — Application foundation
 
-- [x] Create the launcher repository.
-- [x] Record the hybrid architecture and feature roadmap.
-- [ ] Bootstrap the Tauri 2 + React + TypeScript + Rust application.
-- [ ] Add formatting, linting, unit tests, and CI.
-- [ ] Define application data paths, config schema, and migration rules.
-- [ ] Add legal notices and third-party component inventory.
+- [x] Tauri 2 + React + TypeScript + Rust scaffold.
+- [x] Resort-inspired launcher UI with Home, Mods, Graphics, Controls, Saves, Settings pages.
+- [x] Native file-picker and typed Rust command bridge.
+- [x] JSON configuration and profile model.
+- [x] CI and tagged release workflow definitions.
+- [ ] CI matrix green on macOS, Windows and Linux.
 
-**Exit criteria:** clean checkout builds on macOS, Windows, and Linux CI; the app opens; version and diagnostic information are visible.
+## M1 — Playable launcher
 
-## M1 — First playable launcher
+- [x] Select Dolphin executable and query version using `--version`.
+- [x] Select ISO, RVZ, WBFS, WIA, GCZ, GCM and CISO images.
+- [x] Read RZT-family Wii Sports Resort IDs from raw ISO/GCM headers.
+- [x] Launch using `--user`, `--exec`, and config overrides.
+- [x] Isolate Dolphin user data per profile.
+- [x] Poll child-process status.
+- [ ] Test with real Wii Sports Resort images on all target OSes.
+- [ ] Add process log collection and graceful shutdown controls.
 
-- [ ] Build the Resort-themed home screen and navigation shell.
-- [ ] Add first-run setup for Dolphin and the game image.
-- [ ] Validate the selected game image and identify its region/title from metadata.
-- [ ] Detect Dolphin version and validate executable launch.
-- [ ] Launch the game using a stable app-managed Dolphin user directory.
-- [ ] Display launch errors, emulator exit status, and logs.
-- [ ] Preserve user data when the app updates.
+## M2 — Profiles and persistence
 
-**Exit criteria:** a user can configure an existing Dolphin installation and their own Wii Sports Resort image, press Play, and reach gameplay. Saves remain after closing/reopening and after installing a newer launcher build.
+- [x] Create, rename, switch and delete profiles.
+- [x] Store graphics, controller preferences, mods and Gecko codes per profile.
+- [x] Keep mutable data outside the app install directory.
+- [x] Preserve profile user folders when profiles are removed.
+- [x] Back up and restore managed Wii/title, StateSaves and Screenshots directories.
+- [ ] Add profile import/export and schema migration tests.
+- [ ] Add backup integrity checks and restore progress UI.
 
-## M2 — Profiles and Dolphin configuration bridge
+## M3 — Graphics
 
-- [ ] Create, rename, duplicate, export, and import profiles.
-- [ ] Persist settings in a versioned schema.
-- [ ] Read/write supported per-game Dolphin configuration values.
-- [ ] Detect unsupported settings by Dolphin version.
-- [ ] Add safe backup/restore of managed configuration.
-- [ ] Add a Dolphin fork compatibility/version capability check.
+- [x] Expose 1×–12× internal-resolution settings.
+- [x] Apply internal/max internal resolution, MSAA, anisotropy, linear texture filtering, vertex rounding, FPS overlay and borderless fullscreen through Dolphin configuration overrides.
+- [x] Explain 8K output and hardware limitations.
+- [ ] Validate 8K output modes on real monitors and GPUs.
+- [ ] Add renderer selection, shader presets and verified Resort-specific profiles.
+- [ ] Add frame pacing and performance testing.
 
-**Exit criteria:** two profiles can use different graphics, controllers, and mods without corrupting each other's configuration or save data.
+## M4 — Mods
 
-## M3 — Graphics and display
+- [x] Import Riivolution ZIPs with safe extraction and XML validation.
+- [x] Install, enable, disable and remove app-managed Riivolution folders.
+- [x] Import Dolphin Resource Pack ZIPs and keep them as ZIP files in ResourcePacks.
+- [x] Enable/disable/remove app-managed resource-pack archives.
+- [x] Write Gecko codes into Dolphin GameSettings INI files.
+- [ ] Add direct Riivolution patch-preset selection through a tested Dolphin engine interface. Until then, use Dolphin's game-list **Start with Riivolution Patches** workflow.
+- [ ] Add Resource Pack v1/v2 conformance tests, conflict previews and priority controls.
+- [ ] Add dependency graph, metadata editing and mod-profile export.
 
-- [ ] Add Native, 720p, 1080p, 1440p, 4K, 5K, and 8K output presets.
-- [ ] Separate internal rendering scale from window/display resolution.
-- [ ] Expose renderer, anti-aliasing, anisotropic filtering, texture filtering, and shader options where supported.
-- [ ] Add optional Resort compatibility fixes after validating each one.
-- [ ] Add fullscreen, borderless, and windowed display modes.
-- [ ] Show estimated performance impact and warn about VRAM requirements.
+## M5 — Controllers
 
-**Exit criteria:** settings persist per profile and are verified in Dolphin logs/configuration; unsupported modes are disabled or clearly marked. 8K is a target preset, not a performance guarantee.
+- [x] Apply real vs emulated Wii Remote source to per-game `WiimoteSource0`.
+- [x] Persist MotionPlus/Nunchuk preferences and device notes.
+- [ ] Build native mapping editor for gamepad, keyboard/mouse, gyro and IR.
+- [ ] Apply MotionPlus and extension attachment profiles automatically.
+- [ ] Add calibration view, live input diagnostics and multiple remote slots.
 
-## M4 — Mod manager
+## M6 — Capture and utilities
 
-- [ ] Import, inspect, enable, disable, and remove Riivolution patch sets.
-- [ ] Parse Riivolution XML options and display supported choices.
-- [ ] Verify how the current Dolphin fork activates a selected patch set.
-- [ ] Implement engine integration only if the existing Dolphin interface cannot select patches reliably.
-- [ ] Import Dolphin Resource Pack v1/v2 archives.
-- [ ] Manage custom texture folders and resource-pack priority.
-- [ ] Manage Gecko/Action Replay codes where Dolphin exposes them.
-- [ ] Add conflict preview, per-profile activation, safe rollback, and mod diagnostics.
+- [x] Backup/restore utilities for Wii title saves, state saves and screenshots.
+- [ ] Add screenshot and video capture controls.
+- [ ] Add save-state management and hotkey customization.
+- [ ] Add profile export/import and diagnostics export.
 
-**Exit criteria:** a mod set can be enabled for one profile, disabled for another, and reverted without modifying the original game image. Invalid or unsafe archives are rejected.
+## M7 — Resort UI
 
-## M5 — Controllers and motion input
+- [x] Wuhu Island-inspired color system, island hero art built from CSS shapes, sports shortcut strip and Resort-themed dashboard.
+- [ ] Add original sport artwork, transitions, sound themes, keyboard navigation and accessibility review.
 
-- [ ] Expose real Wii Remote connection and passthrough setup.
-- [ ] Configure Wii Remote + MotionPlus and Nunchuk extensions.
-- [ ] Add virtual Wii Remote profiles for gamepads.
-- [ ] Add keyboard/mouse remapping.
-- [ ] Separate motion, tilt, swing, shake, pointer/IR, and button mapping.
-- [ ] Add calibration and live input visualization.
-- [ ] Add multiple controller slots and local multiplayer profiles.
+## M8 — Distribution
 
-**Exit criteria:** tests cover real Wii Remote passthrough and virtual inputs; each input profile can be restored and changed without editing raw Dolphin configuration files.
+- [x] macOS, Windows and Linux CI build definitions.
+- [x] Tagged GitHub Release workflow definition.
+- [ ] Verify successful macOS .app/.dmg, Windows installer/EXE and Linux AppImage assets.
+- [ ] Add clean-install, upgrade and data-preservation tests.
+- [ ] Decide launcher license and automate third-party notices/source bundle for any bundled runtime.
 
-## M6 — Saves, capture, and gameplay utilities
+## Known limitations
 
-- [ ] Save backup/restore with timestamps.
-- [ ] Automatic backup before mod or profile changes that affect persistent data.
-- [ ] Save-state shortcuts and management when supported by the active Dolphin build.
-- [ ] Screenshot and video-recording controls.
-- [ ] Frame pacing, speed limit, and slow-motion controls where supported.
-- [ ] Disk-space and save-data visibility.
-
-**Exit criteria:** backup/restore is tested against corrupted or missing data; app updates do not alter saves or states.
-
-## M7 — Resort identity and polish
-
-- [ ] Original Wuhu Island-inspired launcher artwork and icon set.
-- [ ] Sport-specific panels for all 12 sports.
-- [ ] Animated UI transitions and optional ambient audio.
-- [ ] Keyboard navigation, accessibility labels, scalable UI, and high-contrast mode.
-- [ ] Settings search and controller shortcut hints.
-- [ ] First-run guide and support/diagnostics page.
-
-**Exit criteria:** UI remains readable at common window sizes and display scaling; no copyrighted game art/audio is bundled without permission.
-
-## M8 — Distribution and release automation
-
-- [ ] macOS .app inside a .dmg.
-- [ ] Windows installer/portable .exe.
-- [ ] Linux AppImage.
-- [ ] CI build and test on every pull request.
-- [ ] Release workflow publishes GitHub Releases after a tagged, verified build.
-- [ ] Runtime packaging, version pinning, license notices, and corresponding source are handled correctly.
-- [ ] Upgrade test confirms user data survives.
-- [ ] Clean-machine install and launch tests on each platform.
-
-**Exit criteria:** release assets install and launch on clean test machines, and update/uninstall procedures preserve user data unless the user explicitly requests removal.
-
-## Non-goals
-
-- Reimplementing the Wii hardware or recompiling Nintendo's game executable.
-- Bundling the Wii Sports Resort game image, firmware, NAND, or copyrighted game assets.
-- Promising native 8K rendering performance on hardware that cannot sustain it.
-- Treating every Riivolution patch as automatically compatible with Dolphin or every game region.
+- CI/native build has not yet been confirmed green.
+- The launcher does not embed Dolphin's render window.
+- Riivolution activation still requires Dolphin's own patch-selection UI.
+- Virtual controller mapping, MotionPlus attachment and Nunchuk profiles are not yet implemented; Dolphin's controller UI handles those details.
+- For compressed game images, users must confirm the six-character Game ID in Settings.
+- No game image, NAND, firmware or proprietary game assets are bundled.
