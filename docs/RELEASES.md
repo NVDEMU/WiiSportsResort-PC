@@ -2,28 +2,20 @@
 
 ## Targets
 
-- macOS: a functional .app packaged inside a .dmg.
-- Windows: a Windows installer or portable .exe distribution.
-- Linux: AppImage.
+- macOS: functional .app packaged inside a .dmg.
+- Windows: Tauri NSIS/MSI installer assets.
+- Linux: AppImage (plus any other Tauri targets produced by the release workflow).
 
-## CI and release flow
+## CI
 
-- Pull requests run formatting, lint, type-check, and platform build checks.
-- Pushes to the default branch run continuous integration.
-- Release builds are created from a version tag only after required checks pass.
-- GitHub Releases are the canonical distribution location; transient workflow artifacts are for testing, not the only release channel.
-- CI must avoid overlapping release jobs and cancel superseded non-release builds safely.
+Pull requests and main-branch pushes run frontend checks, Rust tests, and a native Tauri build on macOS, Windows and Ubuntu. Tagged `v*` builds run through the release workflow and publish GitHub Release assets.
 
-## Runtime handling
+CI must be green before publishing a version. The launcher is not yet considered release-ready until the first successful three-platform workflow and clean-install tests complete.
 
-Dolphin can be user-provided or included in a release only when licensing and corresponding-source requirements are met. The release process must record the exact Dolphin commit/build version and include required license texts and source access.
+## Runtime
 
-Do not auto-update the Dolphin engine independently of the app's compatibility matrix without validation.
+Dolphin is selected by the user and is not bundled in the first implementation. If a future release bundles Dolphin, it must pin the exact source revision and satisfy GPL-2.0-or-later source and notice obligations.
 
-## User-data preservation
+## User data
 
-- App executable and mutable user data are separate.
-- Updates never reset saves, NAND, mods, texture packs, controller profiles, or user settings.
-- Database/config schema migrations are versioned and tested.
-- Uninstall behavior must not delete user data by default.
-- Rollback instructions are published for releases with settings or data migrations.
+Mutable data is stored in the OS application-data directory, never inside the application bundle/install directory. Updating or uninstalling the app must not delete Dolphin profile folders, saves, mods, texture packs, controller profiles or backups by default.
