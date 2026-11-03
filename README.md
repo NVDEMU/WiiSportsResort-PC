@@ -1,78 +1,74 @@
 # Wii Sports Resort Enhanced
 
-A game-specific launcher and enhancement layer for **Wii Sports Resort**, powered by a customized Dolphin runtime.
+A game-specific desktop launcher and enhancement layer for **Wii Sports Resort**, powered by a user-selected Dolphin installation.
 
-> **Development status:** architecture and repository bootstrap. This project is not yet a playable launcher, and planned features below should not be interpreted as implemented.
+> **Status:** first implementation committed. Native builds and real-game testing are still pending. This is an emulator wrapper, not a recompilation of Nintendo's game executable.
 
-## Goals
+## Implemented in the first pass
 
-- A dedicated, Wuhu Island-inspired desktop launcher.
-- A hybrid integration model: the launcher owns configuration and game management while Dolphin remains the emulation engine.
-- Real Wii Remotes and MotionPlus, plus configurable virtual Wii Remotes driven by gamepads and keyboard/mouse.
-- Mod profiles and support for Riivolution patches, Dolphin resource packs/custom textures, and Gecko codes.
-- High-resolution rendering presets through 8K output targets, subject to hardware and emulator limits.
-- Persistent saves, backups, screenshots, recording, and per-profile settings.
-- Windows, macOS, and Linux releases.
+- Tauri 2 + React + TypeScript + Rust desktop application.
+- Wuhu Island-inspired launcher dashboard and navigation.
+- Dolphin executable detection through `--version`.
+- ISO, RVZ, WBFS, WIA, GCZ, GCM and CISO file selection.
+- Wii Sports Resort RZT-family ID detection for raw ISO/GCM headers.
+- Direct launch through Dolphin's `--user`, `--exec`, and `--config` arguments.
+- Separate, persistent Dolphin user folder per profile.
+- Profile creation, switching, renaming, deletion (user data retained).
+- ZIP import for Riivolution patch folders and Dolphin Resource Packs.
+- Safe archive extraction with path, symlink, entry-count and expanded-size checks.
+- Enable/disable/remove for app-managed mod folders and resource-pack ZIPs.
+- Gecko code writer for Dolphin per-game GameSettings files.
+- Per-game real/emulated Wii Remote source selection.
+- Internal scale, MSAA, anisotropy, linear filtering, vertex rounding, FPS overlay, and borderless fullscreen preferences.
+- Save/state/screenshot backup and restore.
+- Cross-platform CI and tagged GitHub Release workflows.
 
-## Architecture
+## Important limits
 
-- **Frontend:** Tauri 2 + React + TypeScript.
-- **Desktop/backend layer:** Rust. It validates paths, manages configuration and profiles, and launches Dolphin as a child process without passing commands through a shell.
-- **Emulation:** [NVDEMU/dolphin](https://github.com/NVDEMU/dolphin), maintained separately from this repository.
-- **User data:** kept outside the install directory so application updates do not overwrite saves, mods, or settings.
-
-The initial integration uses Dolphin's documented command-line interface and a dedicated user directory. Deeper integration will be added only where the existing CLI/configuration interfaces are insufficient.
-
-## Repository layout
-
-- src/ — React application
-- src-tauri/ — Rust desktop application and native integration
-- docs/ — Architecture, integration notes, and roadmap
-- assets/ — Original launcher artwork and UI resources
-- .github/ — CI, issue templates, and release automation
-
-## Development status
-
-| Area | Status |
-|---|---|
-| Product architecture and roadmap | In progress |
-| Launcher UI | Planned |
-| Dolphin detection and launch | Planned |
-| Per-game/per-profile configuration | Planned |
-| Riivolution manager | Planned |
-| Texture/resource-pack manager | Planned |
-| Wii Remote and virtual motion configuration | Planned |
-| Graphics presets through 8K | Planned |
-| Save management and backups | Planned |
-| Cross-platform packaging | Planned |
-
-See [the implementation roadmap](docs/ROADMAP.md) and [architecture](docs/ARCHITECTURE.md).
+- The initial source has not yet been compiled by the GitHub Actions matrix. Treat it as an implementation awaiting CI verification.
+- For Riivolution, the app imports and installs patches but Dolphin's own game-list workflow is still needed to choose **Start with Riivolution Patches** and select the XML/options. The ordinary Play button launches the unpatched game.
+- Real and emulated Wii Remote source is selected through the per-game GameINI. Detailed gyro, IR, swing, Nunchuk and MotionPlus extension mappings remain configured in Dolphin's controller UI.
+- The MotionPlus/Nunchuk toggles are saved as profile preferences; they do not yet create controller mappings or force an attachment profile.
+- Game ID detection currently reads raw ISO/GCM headers. For compressed formats, confirm the six-character ID in Dolphin and enter it in Settings.
+- 12× is Dolphin's internal rendering scale ceiling in the current engine. It is not a guarantee of native 8K output; final display resolution and performance depend on Dolphin, the OS, GPU and monitor.
+- The Dolphin game window is separate from the launcher.
 
 ## Requirements
 
-- A legally obtained Wii Sports Resort disc image or supported game dump. The game is not included.
-- A compatible Dolphin build, either selected by the user or provided through a properly licensed distribution package.
-- A desktop operating system supported by both Tauri and the selected Dolphin build.
+- A compatible Dolphin installation selected by the user.
+- A legally obtained Wii Sports Resort image in a format supported by Dolphin.
+- A MotionPlus-compatible controller for original motion behavior, or appropriately configured emulated input.
 
-## First-run target
+The game image, Wii NAND, firmware, and proprietary Nintendo artwork/audio are not included.
 
-1. Open the launcher.
-2. Select the Dolphin executable or application bundle.
-3. Select the user's Wii Sports Resort game image.
-4. Choose or create a profile.
-5. Launch through Dolphin with the app-managed user directory.
-6. Preserve saves, settings, and mods independently of application updates.
+## Development
 
-## Build targets
+Install Node.js 22, Rust stable (1.77+; current Tauri toolchain recommended), and the [Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/).
 
-- macOS: target is a .dmg containing a functional .app.
-- Windows: installer or portable .exe distribution.
-- Linux: AppImage.
+```sh
+npm install
+npm run tauri -- dev
+```
 
-## Licensing and third-party software
+Frontend checks:
 
-Dolphin is licensed under GPL-2.0-or-later. Any distribution containing Dolphin must comply with Dolphin's license, including required source-code and license notices. The launcher and its relationship to bundled third-party components will be documented before releases. No Nintendo game files, firmware, or proprietary game assets will be redistributed.
+```sh
+npm run check
+npm run build
+```
 
-## Contributing
+Desktop build:
 
-Read CONTRIBUTING.md before submitting changes. Do not commit game dumps, NAND images, BIOS/firmware, proprietary game assets, copyrighted texture packs, personal save files, or controller credentials.
+```sh
+npm run tauri -- build
+```
+
+See [the roadmap](docs/ROADMAP.md), [architecture](docs/ARCHITECTURE.md), [Dolphin integration](docs/EMULATOR-INTEGRATION.md), and [mod-system details](docs/MOD-SYSTEM.md).
+
+## Dolphin integration
+
+The emulator engine is maintained separately at [NVDEMU/dolphin](https://github.com/NVDEMU/dolphin). The launcher uses its documented CLI and configuration interfaces first, and only requires engine changes when a concrete capability is missing.
+
+## Licensing
+
+Dolphin is GPL-2.0-or-later. This repository's launcher license and third-party dependency notices still need a maintainer decision before redistribution. Any future package containing Dolphin must include the required license notices and corresponding source access. No Nintendo game files or proprietary assets are redistributed.
