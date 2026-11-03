@@ -242,6 +242,14 @@ pub fn launch_game(
     }
 
     let graphics = &profile.graphics;
+    let anisotropy_mode = match graphics.anisotropy {
+        1 => 0,
+        2 => 1,
+        4 => 2,
+        8 => 3,
+        16 => 4,
+        _ => -1,
+    };
     let mut arguments = vec![
         "--user".to_string(),
         user_dir.to_string_lossy().into_owned(),
@@ -250,6 +258,8 @@ pub fn launch_game(
         format!("--config=GFX.Settings.InternalResolution={}", graphics.internal_resolution),
         "--config=GFX.Settings.MaxInternalResolution=12".to_string(),
         format!("--config=GFX.Settings.MSAA={}", graphics.msaa),
+        format!("--config=GFX.Enhancements.MaxAnisotropy={}", anisotropy_mode),
+        "--config=GFX.Enhancements.ForceTextureFiltering=2".to_string(),
         format!("--config=GFX.Hacks.VertexRounding={}", graphics.vertex_rounding),
         format!("--config=GFX.Settings.ShowFPS={}", graphics.show_fps),
         format!("--config=GFX.Settings.BorderlessFullscreen={}", graphics.borderless_fullscreen),
@@ -447,6 +457,9 @@ pub fn import_mod_archive(
     } else {
         let manifest_path = find_named_file(&staging, "manifest.json")?
             .ok_or_else(|| "No manifest.json was found. Select a Dolphin Resource Pack ZIP.".to_string())?;
+        if manifest_path.parent() != Some(staging.as_path()) {
+            return Err("Dolphin Resource Pack manifest.json must be at the root of the ZIP archive.".to_string());
+        }
         let manifest_text = fs::read_to_string(&manifest_path).map_err(|error| error.to_string())?;
         let manifest: Value = serde_json::from_str(&manifest_text).map_err(|error| format!("Invalid resource pack manifest: {error}"))?;
         let name = manifest.get("name").and_then(Value::as_str).ok_or_else(|| "Resource pack manifest is missing its name.".to_string())?.to_string();
@@ -725,6 +738,16 @@ mod tests {
     #[test]
     fn accepts_generated_uuid_profile_ids() {
         assert!(valid_profile_id(&Uuid::new_v4().to_string()));
+    }
+
+    #[test]
+    fn updates_gameini_values_without_discarding_other_settings() {
+        let original = "[Controls]\\nPadType0 = 6\\nWiimoteSource0 = 1\\n\\n[Core]\\nEnableCheats = True\\n";
+        let updated = set_ini_value(original, "Controls", "WiimoteSource0", "2");
+        assert!(updated.contains("PadType0 = 6"));
+        assert!(updated.contains("WiimoteSource0 = 2"));
+        assert!(updated.contains("EnableCheats = True"));
+        assert_eq!(updated.matches("WiimoteSource0").count(), 1);
     }
 
     #[test]
