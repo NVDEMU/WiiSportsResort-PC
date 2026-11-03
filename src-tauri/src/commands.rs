@@ -222,14 +222,19 @@ pub fn launch_game(
 ) -> Result<LaunchResult, String> {
     let dolphin = inspect_dolphin_path(&dolphin_path)?;
     let game = inspect_game_path(&game_path)?;
+    if game.is_wii_sports_resort == Some(false) {
+        return Err("The selected image's disc ID is not in the Wii Sports Resort RZT family.".to_string());
+    }
     let config = read_config(&app)?;
     let profile = config.profiles.iter().find(|profile| profile.id == profile_id)
         .ok_or_else(|| "The selected profile no longer exists.".to_string())?;
     let user_dir = profile_user_dir(&app, &profile_id)?;
-    let game_id = game.game_id.as_deref().or(config.game_id.as_deref());
-    if let Some(game_id) = game_id {
-        write_controller_source(&user_dir, game_id, &profile.controller.mode)?;
+    let game_id = game.game_id.as_deref().or(config.game_id.as_deref())
+        .ok_or_else(|| "A six-character Wii Sports Resort Game ID is required. Confirm it in Settings before launching this image.".to_string())?;
+    if !game_id.to_ascii_uppercase().starts_with("RZT") {
+        return Err("The Game ID must begin with RZT for Wii Sports Resort.".to_string());
     }
+    write_controller_source(&user_dir, game_id, &profile.controller.mode)?;
     fs::create_dir_all(user_dir.join("ResourcePacks")).map_err(|error| error.to_string())?;
     fs::create_dir_all(user_dir.join("Load/Riivolution")).map_err(|error| error.to_string())?;
 
@@ -412,12 +417,17 @@ fn mod_storage_paths(user_dir: &Path, profile_id: &str, kind: &str, mod_id: &str
     if !valid_profile_id(profile_id) || !valid_profile_id(mod_id) {
         return Err("Invalid profile or mod identifier.".to_string());
     }
-    let (active_root, disabled_root) = match kind {
-        "riivolution" => (user_dir.join("Load/Riivolution"), user_dir.join("ModStash").join(profile_id).join("Riivolution")),
-        "resource_pack" => (user_dir.join("ResourcePacks").join(format!("{mod_id}.zip")), user_dir.join("ModStash").join(profile_id).join("ResourcePacks").join(format!("{mod_id}.zip"))),
-        _ => return Err("Unsupported modification type.".to_string()),
-    };
-    Ok((active_root.join(mod_id), disabled_root.join(mod_id)))
+    match kind {
+        "riivolution" => Ok((
+            user_dir.join("Load/Riivolution").join(mod_id),
+            user_dir.join("ModStash").join(profile_id).join("Riivolution").join(mod_id),
+        )),
+        "resource_pack" => Ok((
+            user_dir.join("ResourcePacks").join(format!("{mod_id}.zip")),
+            user_dir.join("ModStash").join(profile_id).join("ResourcePacks").join(format!("{mod_id}.zip")),
+        )),
+        _ => Err("Unsupported modification type.".to_string()),
+    }
 }
 
 #[tauri::command]
@@ -738,6 +748,19 @@ mod tests {
     #[test]
     fn accepts_generated_uuid_profile_ids() {
         assert!(valid_profile_id(&Uuid::new_v4().to_string()));
+    }
+
+    #[test]
+    fn resource_pack_paths_are_zip_files_and_riivolution_paths_are_folders() {
+        let profile_id = Uuid::new_v4().to_string();
+        let mod_id = Uuid::new_v4().to_string();
+        let root = Path::new("/tmp/wsr-user");
+        let (pack_active, pack_disabled) = mod_storage_paths(root, &profile_id, "resource_pack", &mod_id).unwrap();
+        assert_eq!(pack_active, root.join("ResourcePacks").join(format!("{mod_id}.zip")));
+        assert_eq!(pack_disabled, root.join("ModStash").join(&profile_id).join("ResourcePacks").join(format!("{mod_id}.zip")));
+        let (patch_active, patch_disabled) = mod_storage_paths(root, &profile_id, "riivolution", &mod_id).unwrap();
+        assert_eq!(patch_active, root.join("Load/Riivolution").join(&mod_id));
+        assert_eq!(patch_disabled, root.join("ModStash").join(&profile_id).join("Riivolution").join(&mod_id));
     }
 
     #[test]
