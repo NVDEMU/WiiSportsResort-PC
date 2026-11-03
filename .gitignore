@@ -52,7 +52,6 @@ nand/
 NAND/
 sys/
 keys/
-*.bin
 *.sav
 *.srm
 *.state
