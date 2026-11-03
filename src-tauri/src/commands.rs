@@ -226,6 +226,10 @@ pub fn launch_game(
     let profile = config.profiles.iter().find(|profile| profile.id == profile_id)
         .ok_or_else(|| "The selected profile no longer exists.".to_string())?;
     let user_dir = profile_user_dir(&app, &profile_id)?;
+    let game_id = game.game_id.as_deref().or(config.game_id.as_deref());
+    if let Some(game_id) = game_id {
+        write_controller_source(&user_dir, game_id, &profile.controller.mode)?;
+    }
     fs::create_dir_all(user_dir.join("ResourcePacks")).map_err(|error| error.to_string())?;
     fs::create_dir_all(user_dir.join("Load/Riivolution")).map_err(|error| error.to_string())?;
 
@@ -249,7 +253,6 @@ pub fn launch_game(
         format!("--config=GFX.Hacks.VertexRounding={}", graphics.vertex_rounding),
         format!("--config=GFX.Settings.ShowFPS={}", graphics.show_fps),
         format!("--config=GFX.Settings.BorderlessFullscreen={}", graphics.borderless_fullscreen),
-        format!("--config=Core.Wiimote1Source={}", if profile.controller.mode == "real" { 2 } else { 1 }),
     ];
     if profile.mods.iter().any(|item| item.kind == "resource_pack" && item.enabled) {
         arguments.push("--config=GFX.Settings.HiresTextures=True".to_string());
@@ -401,7 +404,7 @@ fn mod_storage_paths(user_dir: &Path, profile_id: &str, kind: &str, mod_id: &str
     }
     let (active_root, disabled_root) = match kind {
         "riivolution" => (user_dir.join("Load/Riivolution"), user_dir.join("ModStash").join(profile_id).join("Riivolution")),
-        "resource_pack" => (user_dir.join("ResourcePacks"), user_dir.join("ModStash").join(profile_id).join("ResourcePacks")),
+        "resource_pack" => (user_dir.join("ResourcePacks").join(format!("{mod_id}.zip")), user_dir.join("ModStash").join(profile_id).join("ResourcePacks").join(format!("{mod_id}.zip"))),
         _ => return Err("Unsupported modification type.".to_string()),
     };
     Ok((active_root.join(mod_id), disabled_root.join(mod_id)))
@@ -454,7 +457,11 @@ pub fn import_mod_archive(
 
     let (active_path, _) = mod_storage_paths(&user_dir, &profile_id, &kind, &id)?;
     if let Some(parent) = active_path.parent() { fs::create_dir_all(parent).map_err(|error| error.to_string())?; }
-    copy_dir(&pack_root, &active_path)?;
+    if kind == "resource_pack" {
+        fs::copy(&archive_path, &active_path).map_err(|error| error.to_string())?;
+    } else {
+        copy_dir(&pack_root, &active_path)?;
+    }
     let _ = fs::remove_dir_all(&staging);
 
     let entry = ModEntry { id, name, kind, enabled: true, game_prefix, xml_path, version };
@@ -494,9 +501,72 @@ pub fn remove_mod(app: AppHandle, profile_id: String, mod_id: String) -> Result<
     let item = profile.mods.remove(index);
     let user_dir = profile_user_dir(&app, &profile_id)?;
     let (active, disabled) = mod_storage_paths(&user_dir, &profile_id, &item.kind, &item.id)?;
-    if active.exists() { fs::remove_dir_all(active).map_err(|error| error.to_string())?; }
-    if disabled.exists() { fs::remove_dir_all(disabled).map_err(|error| error.to_string())?; }
+    for path in [active, disabled] {
+        if path.exists() {
+            if item.kind == "resource_pack" { fs::remove_file(path).map_err(|error| error.to_string())?; }
+            else { fs::remove_dir_all(path).map_err(|error| error.to_string())?; }
+        }
+    }
     write_config(&app, &config)
+}
+
+fn set_ini_value(content: &str, section: &str, key: &str, value: &str) -> String {
+    let mut lines: Vec<String> = content.lines().map(str::to_string).collect();
+    let header = format!("[{section}]");
+    let section_start = lines.iter().position(|line| line.trim().eq_ignore_ascii_case(&header));
+    match section_start {
+        Some(start) => {
+            let end = lines.iter().enumerate().skip(start + 1)
+                .find(|(_, line)| {
+                    let trimmed = line.trim();
+                    trimmed.starts_with('[') && trimmed.ends_with(']')
+                })
+                .map(|(index, _)| index)
+                .unwrap_or(lines.len());
+            let key_prefix = format!("{key}=");
+            let key_prefix_spaced = format!("{key} =");
+            let existing: Vec<usize> = (start + 1..end)
+                .filter(|index| {
+                    let trimmed = lines[*index].trim();
+                    trimmed.starts_with(&key_prefix) || trimmed.starts_with(&key_prefix_spaced)
+                })
+                .collect();
+            if let Some(first) = existing.first().copied() {
+                lines[first] = format!("{key} = {value}");
+                for duplicate in existing.into_iter().skip(1).rev() {
+                    lines.remove(duplicate);
+                }
+            } else {
+                lines.insert(end, format!("{key} = {value}"));
+            }
+        }
+        None => {
+            if !lines.is_empty() && !lines.last().unwrap().is_empty() {
+                lines.push(String::new());
+            }
+            lines.push(header);
+            lines.push(format!("{key} = {value}"));
+        }
+    }
+    let mut result = lines.join("\n");
+    result.push('\n');
+    result
+}
+
+fn write_controller_source(user_dir: &Path, game_id: &str, mode: &str) -> Result<(), String> {
+    let game_id = game_id.to_ascii_uppercase();
+    if game_id.len() != 6 || !game_id.chars().all(|character| character.is_ascii_alphanumeric()) {
+        return Err("Game ID must contain six letters or digits before applying the controller profile.".to_string());
+    }
+    let source = match mode {
+        "real" => "2",
+        "emulated" => "1",
+        _ => return Err("Controller source must be real or emulated.".to_string()),
+    };
+    let path = user_dir.join("GameSettings").join(format!("{game_id}.ini"));
+    let existing = if path.exists() { fs::read_to_string(&path).map_err(|error| error.to_string())? } else { String::new() };
+    let updated = set_ini_value(&existing, "Controls", "WiimoteSource0", source);
+    write_replacing(&path, updated.as_bytes())
 }
 
 fn validate_gecko_code(code: &str) -> Result<String, String> {
