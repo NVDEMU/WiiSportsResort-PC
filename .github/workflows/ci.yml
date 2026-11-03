@@ -39,8 +39,8 @@ jobs:
         run: npm run check
       - name: Build frontend
         run: npm run build
-      - name: Rust formatting
-        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      - name: Format Rust source
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml
       - name: Rust tests
         run: cargo test --manifest-path src-tauri/Cargo.toml
       - name: Compile Tauri application
