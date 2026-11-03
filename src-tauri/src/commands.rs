@@ -655,12 +655,6 @@ pub fn save_gecko_codes(app: AppHandle, profile_id: String, game_id: String, cod
 fn timestamp() -> String {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos().to_string()
 }
-
-fn copy_if_exists(source: &Path, destination: &Path) -> Result<(), String> {
-    if source.is_dir() { copy_dir(source, destination)?; }
-    Ok(())
-}
-
 fn create_backup(app: &AppHandle, profile_id: &str) -> Result<BackupInfo, String> {
     let user_dir = profile_user_dir(app, profile_id)?;
     let id = timestamp();
@@ -771,7 +765,7 @@ mod tests {
 
     #[test]
     fn updates_gameini_values_without_discarding_other_settings() {
-        let original = "[Controls]\\nPadType0 = 6\\nWiimoteSource0 = 1\\n\\n[Core]\\nEnableCheats = True\\n";
+        let original = "[Controls]\nPadType0 = 6\nWiimoteSource0 = 1\n\n[Core]\nEnableCheats = True\n";
         let updated = set_ini_value(original, "Controls", "WiimoteSource0", "2");
         assert!(updated.contains("PadType0 = 6"));
         assert!(updated.contains("WiimoteSource0 = 2"));
