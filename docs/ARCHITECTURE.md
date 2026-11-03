@@ -2,110 +2,63 @@
 
 ## Product shape
 
-Wii Sports Resort Enhanced is a game-specific desktop application. It is not a recompilation of the Wii Sports Resort executable. Dolphin remains responsible for emulating the Wii hardware and executing the original game image.
+Wii Sports Resort Enhanced is a game-specific desktop launcher, not a recompilation of the Wii Sports Resort executable. Dolphin remains responsible for Wii hardware emulation and game execution.
 
-The product has two independently maintainable parts:
+## Stack
 
-1. The launcher repository (this repository) owns the interface, user configuration, mod/profile management, and process lifecycle.
-2. The Dolphin fork owns emulation and any engine-level changes that cannot be performed reliably through documented settings or command-line arguments.
+- Tauri 2 desktop shell.
+- React + TypeScript launcher interface.
+- Rust backend for file validation, profile persistence, process lifecycle, safe archive extraction, Gecko GameINI editing and backups.
+- `NVDEMU/dolphin` as a separately maintained external emulator runtime.
 
-## Technology
+## Process integration
 
-- Tauri 2 for the desktop shell and native window.
-- React + TypeScript for the launcher UI.
-- Rust for file-system operations, validation, configuration persistence, process management, and platform-specific integration.
-- Dolphin as an external native process in the first playable milestone.
+The launcher starts Dolphin as a child process with discrete OS arguments, never a shell command string. The first implementation uses:
+- `--version` for runtime detection.
+- `--user` for a stable per-profile Dolphin user folder.
+- `--exec` for the selected game image.
+- `--config=` for validated per-run graphics and cheat settings.
 
-This keeps the launcher responsive and comparatively lightweight while avoiding a premature rewrite of Dolphin's Qt frontend.
+The game runs in a separate Dolphin window. Window embedding is deferred until a stable cross-platform render-window contract exists.
 
-## Major subsystems
+## User data
 
-### Application shell
-- Startup and first-run setup.
-- Navigation, theme, accessibility, and window state.
-- User-visible error reporting and diagnostic export.
+Mutable data lives in the OS application data directory, outside the app install:
+- `config.json`: launcher configuration and profiles.
+- `DolphinProfiles/<profile UUID>/User`: Dolphin user folder with title saves, states, cheats, GameSettings, textures, resource packs and Riivolution files.
+- `Backups/<profile UUID>/<backup ID>`: save/state/screenshot backups.
+- `ModStaging`: temporary import staging.
 
-### Game library
-- One primary Wii Sports Resort entry at first.
-- Game image selection and validation.
-- Read the disc header and title metadata rather than hard-coding a single region ID.
-- Record the selected image path without copying the game image into the app install directory.
+Removing a profile does not delete its Dolphin user folder. The backup feature covers Dolphin `Wii/title`, `StateSaves` and `Screenshots` directories.
 
-### Emulator manager
-- Detect supported Dolphin installs and allow an explicit executable override.
-- Read the Dolphin version and test whether the executable starts.
-- Store per-profile Dolphin settings and a managed user-data path.
-- Launch using argument arrays, never shell command concatenation.
-- Capture exit status and logs; allow graceful shutdown before forced termination.
+## Mod subsystem
 
-### Profiles and persistence
-- Profiles reference a game image, Dolphin executable, graphics settings, controller layout, and a mod set.
-- The app database/configuration lives in the OS application data directory.
-- Emulator user data lives in a stable app-managed directory outside the install location.
-- Updates must not delete or replace saves, NAND, screenshots, texture data, mods, or user settings.
-- Profile import/export must use a versioned schema and migration path.
+Riivolution archives are staged, path-validated, XML-parsed and copied into `User/Load/Riivolution/<generated UUID>`. Resource packs are validated from their manifest and their original ZIP archive is stored as `User/ResourcePacks/<generated UUID>.zip`. Toggle/disable moves only app-managed generated paths into `User/ModStash`.
 
-### Mod manager
-- Separate adapters for Riivolution, Dolphin resource packs/custom textures, and Gecko/Action Replay codes.
-- A common manifest model for app-managed metadata; preserve each underlying format rather than silently rewriting it.
-- Conflict preview, enable/disable, ordering, backup, and validation.
-- Do not download or redistribute copyrighted mods without permission.
+Dolphin's normal Riivolution workflow is still required to select the XML/preset. Importing a patch does not activate it. The normal Play button uses `--exec` and launches the unpatched title.
 
-### Controller manager
-- Real Wii Remote discovery/connection remains a Dolphin responsibility.
-- Expose Dolphin's emulated Wii Remote and extension configuration where possible.
-- Provide gamepad and keyboard/mouse mappings to virtual Wii Remote inputs.
-- Treat MotionPlus motion data and pointer/IR data as distinct capabilities.
-- Show calibration and input diagnostics.
+Dolphin Resource Packs are enabled by their presence in the ResourcePacks folder. When a profile contains an enabled pack, the launcher turns on Dolphin's high-resolution texture loading and cache settings.
 
-### Graphics manager
-- Map friendly presets to verified Dolphin settings.
-- Distinguish internal rendering scale, window/display resolution, and post-processing/upscaling.
-- Do not claim that an 8K display output means native 8K game rendering.
-- Keep risky compatibility options individually switchable and profile-scoped.
+## Graphics
 
-## Process boundary
+Per-run configuration includes internal resolution, maximum internal resolution, MSAA, anisotropy, forced linear texture filtering, vertex rounding, FPS metrics and borderless fullscreen. The anisotropy setting is mapped from the UI's 1×/2×/4×/8×/16× choices into Dolphin's `AnisotropicFilteringMode` enum.
 
-Initial launch contract:
+12× is the current Dolphin internal-resolution ceiling. It is not a guarantee of native 8K output. The final output is controlled by the Dolphin render window, OS, graphics backend, GPU and monitor.
 
-- Executable: a user-selected, validated Dolphin binary.
-- User directory: a stable application-managed directory, supplied with Dolphin's user-directory argument.
-- Game: the user's selected supported Wii game image, supplied with Dolphin's exec argument.
-- Arguments are passed as discrete operating-system arguments.
-- No shell, command prompt, or script interpreter is involved.
+## Controllers
 
-The launcher records the exact Dolphin version, arguments (with private paths redacted in exported diagnostics), profile ID, and process result.
+The launcher writes `WiimoteSource0` into the selected game's `GameSettings/<GAMEID>.ini` under `[Controls]`, selecting 1 (Emulated) or 2 (Real). This is a per-game override and avoids changing all Dolphin titles.
 
-The first release uses a separate Dolphin game window. A unified window or embedded render surface is a later engineering investigation, not a blocker for the first playable release.
-
-## Engine integration strategy
-
-Use public Dolphin command-line and configuration interfaces first. Add engine-side changes to NVDEMU/dolphin only when a concrete feature cannot be delivered safely through those interfaces.
-
-Potential engine work, subject to source inspection and tests:
-
-- A documented, versioned launcher integration contract.
-- Reliable selection and activation of a named Riivolution patch set.
-- Queryable runtime status and structured diagnostics.
-- Game-specific graphics defaults and compatibility overrides.
-- Controller profile import/export or a stable configuration bridge.
-
-Do not maintain a long-lived patch set just to rename Dolphin or hide unrelated emulator features. Keep changes small, tested, and upstreamable where possible.
+MotionPlus/Nunchuk preferences and device notes are persisted per launcher profile, but automatic attachment selection and detailed bindings are not implemented yet. Gyro, IR, swing, rumble and extension mapping remain configured in Dolphin's controller UI.
 
 ## Security and reliability
 
-- Validate every path and file type at the Rust boundary.
-- Use allow-listed executable launching and argument arrays.
-- Protect archive extraction against path traversal, symlinks, oversized files, and decompression bombs.
-- Never execute scripts supplied inside mod archives.
-- Back up files before destructive mod changes.
-- Use atomic writes for configuration and profile updates.
-- Keep user data outside the application bundle.
-- Provide clear errors when a feature is unsupported by the detected Dolphin build.
-
-## Cross-platform policy
-
-- macOS: support Apple Silicon first; detect the actual executable inside an app bundle.
-- Windows: support x64 first; handle paths with spaces and non-ASCII characters.
-- Linux: support common x64 distributions first; detect AppImage/system builds.
-- Package Dolphin separately or as a properly licensed runtime payload. Its license and corresponding source obligations must be met.
+- Validate all user-selected paths.
+- Use process argument vectors, never shell command strings.
+- Reject ZIP path traversal, symlinks, excessive entry counts and oversized expanded archives.
+- Never execute scripts from mod archives.
+- Use generated UUIDs for app-owned mod paths.
+- Remove only files/directories the app can identify as its own.
+- Use temporary files plus rename for configuration/GameINI changes.
+- Back up current data before restore.
+- Keep all saves and user profiles outside the install directory.
