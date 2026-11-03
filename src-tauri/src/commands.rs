@@ -596,8 +596,8 @@ fn validate_gecko_code(code: &str) -> Result<String, String> {
     let mut lines = Vec::new();
     for line in code.lines().map(str::trim).filter(|line| !line.is_empty()) {
         let tokens: Vec<&str> = line.split_whitespace().collect();
-        if tokens.is_empty() || tokens.iter().any(|token| token.len() != 8 || !token.chars().all(|character| character.is_ascii_hexdigit())) {
-            return Err("Each Gecko code token must contain exactly eight hexadecimal characters.".to_string());
+        if tokens.len() != 2 || tokens.iter().any(|token| token.len() != 8 || !token.chars().all(|character| character.is_ascii_hexdigit())) {
+            return Err("Each Gecko code line must contain exactly two eight-character hexadecimal values.".to_string());
         }
         lines.push(tokens.join(" "));
     }
@@ -667,7 +667,13 @@ fn create_backup(app: &AppHandle, profile_id: &str) -> Result<BackupInfo, String
     let backup_path = app_data_root(app)?.join("Backups").join(profile_id).join(&id);
     fs::create_dir_all(&backup_path).map_err(|error| error.to_string())?;
     for relative in ["Wii/title", "StateSaves", "Screenshots"] {
-        copy_if_exists(&user_dir.join(relative), &backup_path.join(relative))?;
+        let source = user_dir.join(relative);
+        let destination = backup_path.join(relative);
+        if source.is_dir() {
+            copy_dir(&source, &destination)?;
+        } else {
+            fs::create_dir_all(&destination).map_err(|error| error.to_string())?;
+        }
     }
     let manifest = serde_json::json!({"profileId":profile_id,"createdAtUnixNanos":id,"contents":["Wii/title","StateSaves","Screenshots"]});
     fs::write(backup_path.join("backup.json"), serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?)
@@ -778,5 +784,7 @@ mod tests {
         assert_eq!(validate_gecko_code("04000000 1234ABCD").unwrap(), "04000000 1234ABCD");
         assert!(validate_gecko_code("04ZZ0000 1234ABCD").is_err());
         assert!(validate_gecko_code("1234567").is_err());
+        assert!(validate_gecko_code("12345678").is_err());
+        assert!(validate_gecko_code("12345678 12345678 12345678").is_err());
     }
 }
